@@ -13,7 +13,9 @@ public class RecipeController {
     private final List<Recipe> recipes = new ArrayList<>();
 
     private final AtomicLong counter = new AtomicLong();
-    RecipeController() {}
+
+    RecipeController() {
+    }
 
     /**
      * Adds a new recipe to the list.
@@ -70,27 +72,52 @@ public class RecipeController {
         }
         return false;
     }
+
     /**
      * Updates an existing recipe by its ID.
      *
-     * @param id the ID of the recipe to update
+     * @param id            the ID of the recipe to update
      * @param updatedRecipe the updated recipe data
      * @return the updated recipe, or null if not found
      */
     @PutMapping("/{id}")
     public Recipe updateRecipe(@PathVariable long id, @RequestBody Recipe updatedRecipe) {
-        throw new UnsupportedOperationException("Update recipe not implemented");
+        for (int i = 0; i < recipes.size(); i++) {
+            if (recipes.get(i).getId() == id) {
+                // keep the same ID for consistency
+                updatedRecipe.setId(id);
+                recipes.set(i, updatedRecipe);
+                return updatedRecipe;
+            }
+        }
+        return null; // if not found
     }
 
     /**
      * Partially updates an existing recipe by its ID.
      *
-     * @param id the ID of the recipe to update
+     * @param id            the ID of the recipe to update
      * @param partialRecipe the partial recipe data to update
      * @return the updated recipe, or null if not found
      */
     @PatchMapping("/{id}")
     public Recipe patchRecipe(@PathVariable long id, @RequestBody Recipe partialRecipe) {
-        throw new UnsupportedOperationException("Update recipe not implemented");
+        for (int i = 0; i < recipes.size(); i++) {
+            Recipe existing = recipes.get(i);
+            if (existing.getId() == id) {
+                // only update fields that are not null in the partial recipe
+                if (partialRecipe.getTitle() != null) {
+                    existing.setTitle(partialRecipe.getTitle());
+                }
+                if (partialRecipe.getDescription() != null) {
+                    existing.setDescription(partialRecipe.getDescription());
+                }
+                if (partialRecipe.getIngredients() != null) {
+                    existing.setIngredients(partialRecipe.getIngredients());
+                }
+                return existing;
+            }
+        }
+        return null; // if not found
     }
 }
