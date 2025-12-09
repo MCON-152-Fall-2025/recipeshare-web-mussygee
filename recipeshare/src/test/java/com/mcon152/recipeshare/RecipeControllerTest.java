@@ -125,11 +125,11 @@ class RecipeControllerTest {
             int id = recipeIds.get(0);
 
             String updatedJson = """
-                    { 
-                        "title": "Updated Pie", 
+                    {
+                        "title": "Updated Pie",
                         "description": "New descriptin",
                         "ingredients": "Apples, Flour, Sugar",
-                        "instructions": "Mix and bake" 
+                        "instructions": "Mix and bake"
                     }
                     """;
 

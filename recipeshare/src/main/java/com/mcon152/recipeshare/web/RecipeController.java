@@ -6,10 +6,18 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 
+// MVC-Controller. Returns JSON (View via Spring converters).
+// NOTE (SRP violation in current demo): this controller also stores data (LIst<Recipe>),
+// generates IDs, and performs update Logic. In a refactor, move those to a Service/Repository.
 @RestController
 @RequestMapping("/api/recipes")
 public class RecipeController {
+    private static final Logger logger = LoggerFactory.getLogger(RecipeController.class);
+
     private final List<Recipe> recipes = new ArrayList<>();
 
     private final AtomicLong counter = new AtomicLong();
@@ -25,9 +33,18 @@ public class RecipeController {
      */
     @PostMapping
     public Recipe addRecipe(@RequestBody Recipe recipe) {
-        recipe.setId(counter.incrementAndGet());
-        recipes.add(recipe);
-        return recipe;
+        logger.info("Incoming request: POST /api/recipes");
+        logger.debug("Add recipe request - title='{}'", recipe.getTitle());
+
+        try {
+            recipe.setId(counter.incrementAndGet());
+            recipes.add(recipe);
+            logger.info("Created recipe with id={}", recipe.getId());
+            return recipe;
+        } catch (Exception e) {
+            logger.error("Error occurred while adding recipe: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     /**
@@ -37,7 +54,16 @@ public class RecipeController {
      */
     @GetMapping
     public List<Recipe> getAllRecipes() {
-        return recipes;
+        logger.info("Incoming request: GET /api/recipes");
+
+        try {
+            List<Recipe> all = recipes;
+            logger.info("Returning {} recipes", all.size());
+            return all;
+        } catch (Exception e) {
+            logger.error("Error occurred while getting all recies: {}", e.getMessage(), e);
+            throw e;
+        }
     }
 
     /**
@@ -48,12 +74,22 @@ public class RecipeController {
      */
     @GetMapping("/{id}")
     public Recipe getRecipeById(@PathVariable long id) {
-        for (Recipe recipe : recipes) {
-            if (recipe.getId() == id) {
-                return recipe;
+        logger.info("Incoming request: GET /api/recipes/{}", id);
+
+        try {
+            for (Recipe recipe: recipes) {
+                if (recipe.getId() == id) {
+                    logger.info("Found recipe with id={}", id);
+                    return recipe;
+                }
             }
+
+            logger.warn("Recipe with id={} not found", id);
+            return null;
+        } catch (Exception e) {
+            logger.error("Error occurred while retriving recipe {}: {}", id, e.getMessage(), e);
+            throw e;
         }
-        return null;
     }
 
     /**
@@ -64,13 +100,22 @@ public class RecipeController {
      */
     @DeleteMapping("/{id}")
     public boolean deleteRecipe(@PathVariable long id) {
-        for (int i = 0; i < recipes.size(); i++) {
-            if (recipes.get(i).getId() == id) {
-                recipes.remove(i);
-                return true;
+        logger.info("Incoming request: DELETE /api/recipes/{}", id);
+
+        try {
+            for (int i = 0; i < recipes.size(); i++) {
+                if (recipes.get(i).getId() == id) {
+                    recipes.remove(i);
+                    logger.info("Deleted recipe with id={}", id);
+                    return true;
+                }
             }
+            logger.warn("Delete failed - recipe with id={} not found", id);
+            return false;
+        } catch (Exception e) {
+            logger.error("Error occurred while deleted recipe {}: {}", id, e.getMessage(), e);
+            throw e;
         }
-        return false;
     }
 
     /**
@@ -82,15 +127,28 @@ public class RecipeController {
      */
     @PutMapping("/{id}")
     public Recipe updateRecipe(@PathVariable long id, @RequestBody Recipe updatedRecipe) {
-        for (int i = 0; i < recipes.size(); i++) {
-            if (recipes.get(i).getId() == id) {
-                // keep the same ID for consistency
-                updatedRecipe.setId(id);
-                recipes.set(i, updatedRecipe);
-                return updatedRecipe;
+        MDC.put("recipeTitle", updatedRecipe.getTitle());
+        logger.info("Incoming request: PUT /api/recipes/{}", id);
+        logger.debug("Update recipe - id={}, newTitle='{}'", id, updatedRecipe.getTitle());
+
+        try {
+            for (int i = 0; i < recipes.size(); i++) {
+                if (recipes.get(i).getId() == id) {
+                    updatedRecipe.setId(id);
+                    recipes.set(i, updatedRecipe);
+                    logger.info("Updated recipe with id={}", id);
+                    return updatedRecipe;
+                }
             }
+
+            logger.warn("Cannot update - recipe with id={} not found", id);
+            return null;
+        } catch (Exception e) {
+            logger.error("Error occurred while updating recipe {}: {}", id, e.getMessage(), e);
+            throw e;
+        } finally {
+            MDC.remove("recipeTitle");
         }
-        return null; // if not found
     }
 
     /**
@@ -102,22 +160,35 @@ public class RecipeController {
      */
     @PatchMapping("/{id}")
     public Recipe patchRecipe(@PathVariable long id, @RequestBody Recipe partialRecipe) {
-        for (int i = 0; i < recipes.size(); i++) {
-            Recipe existing = recipes.get(i);
-            if (existing.getId() == id) {
-                // only update fields that are not null in the partial recipe
-                if (partialRecipe.getTitle() != null) {
-                    existing.setTitle(partialRecipe.getTitle());
+        MDC.put("recipeTitle", partialRecipe.getTitle());
+        logger.info("Incoming request: PATCH /api/recipes/{}", id);
+        logger.debug("Patch recipe - id={}, newTitle='{}'", id, partialRecipe.getTitle());
+
+        try {
+            for (int i = 0; i < recipes.size(); i++) {
+                Recipe existing = recipes.get(i);
+                if (existing.getId() == id) {
+                    if (partialRecipe.getTitle() !=null) {
+                        existing.setTitle(partialRecipe.getTitle());
+                    }
+                    if (partialRecipe.getDescription() != null) {
+                        existing.setDescription(partialRecipe.getDescription());
+                    }
+                    if (partialRecipe.getIngredients() != null) {
+                        existing.setIngredients(partialRecipe.getIngredients());
+                    }
+                    logger.info("Patched recipe with id={}", id);
+                    return existing;
                 }
-                if (partialRecipe.getDescription() != null) {
-                    existing.setDescription(partialRecipe.getDescription());
-                }
-                if (partialRecipe.getIngredients() != null) {
-                    existing.setIngredients(partialRecipe.getIngredients());
-                }
-                return existing;
             }
+
+            logger.warn("Cannot patch - recipe with id={} not found", id);
+            return null;
+        } catch (Exception e) {
+            logger.error("Error occurred while patching recipe {}: {}", id, e.getMessage(), e);
+            throw e;
+        } finally {
+            MDC.remove("recipeTitle");
         }
-        return null; // if not found
     }
 }
