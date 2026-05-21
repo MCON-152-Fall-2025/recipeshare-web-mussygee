@@ -28,7 +28,7 @@ RecipeShare is a web application built with Spring Boot that allows users to cre
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/recipeshare.git
+   git clone https://github.com/mussygee/recipeshare.git
    cd recipeshare
    ```
 
